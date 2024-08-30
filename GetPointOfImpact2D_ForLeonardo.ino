@@ -149,7 +149,7 @@ void setup()
   
   T = 22;
   v = 1000 * 331.3 * sqrt( (T+273.15) / 273.15 );
-  MicInputResetTime = (1.05 * sqrt(mic_width*mic_width + mic_height*mic_height)) / v;        //너무 오래된 입력을 사용하지 않기 위한 리셋타임[second]  //
+  MicInputResetTime = (mic_fs * 1.05 * sqrt(mic_width*mic_width + mic_height*mic_height)) / v;        //너무 오래된 입력을 사용하지 않기 위한 리셋타임[second]  //
   //MicInputResetTimeCheckCount = 0;
 
   pinMode(PIN_MIC1, INPUT);
@@ -334,7 +334,7 @@ void loop()
         uint32_t tmp2;
         IntTime = TCNT1;
         tmp2 = (NowTime + IntTime) - MicInputTime[i];
-        if( tmp2 >= (MicInputResetTime*mic_fs) )
+        if( tmp2 >= MicInputResetTime )
         {
           CalculateReset();
         }
