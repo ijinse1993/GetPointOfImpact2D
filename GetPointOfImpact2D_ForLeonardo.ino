@@ -124,7 +124,7 @@ void CalculateReset()
 
   //External int 재허용
   EIFR |= (1 << INTF3) | (1 << INTF2) | (1 << INTF1) | (1 << INTF0);
-  EIMSK |= (1 << INT3) | (1 << INT2) | (1 << INT1) | (1 << INT0);
+  //EIMSK |= (1 << INT3) | (1 << INT2) | (1 << INT1) | (1 << INT0);
 
   //타이머 카운트 초기화
   TCCR1B &= 0xFF - ((1 << CS12) | (1 << CS11) | (1 << CS10));	//타이머 종료
