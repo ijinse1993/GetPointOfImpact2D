@@ -25,8 +25,8 @@ MIC3--------------------------MIC4
 //tuning ( * 표시는 필수로 환경에 맞게 변경 필요)
 #define mic_fs (16000000ul/64)              //sampling rate [Hz]
 int TimerPrescaleVal = (0 << CS12) | (1 << CS11) | (1 << CS10); //16000000/64
-int mic_width   = 400;						          //마이크 사이 거리(너비) [mm]   *
-int mic_height  = 300;						          //마이크 사이 거리(높이) [mm]   *
+float mic_width   = 400;						          //마이크 사이 거리(너비) [mm]   *
+float mic_height  = 300;						          //마이크 사이 거리(높이) [mm]   *
 float Temperature = 22;                     //기온, 소리속도 계산 목적 ['C]
 int MonitorWidth = 3440;                    //모니터의 가로 해상도 [pixel]  *
 int MonitorHeight = 1440;                   //모니터의 세로 해상도 [pixel]  *
@@ -193,7 +193,7 @@ void setup()
   //외부 노이즈로 마이크중 일부만 소리가 입력되었다고 인식되었을 때 이 입력을 지워주기 위함
   //가장 먼 거리인 대각선 거리보다 1.05배 긴 거리의 시간차보다 더 오래된 신호가 있으면 기존 입력 초기화
   MicInputResetTime = (unsigned int)(
-    WaitAllInputDelay * sqrt((float)mic_width*mic_width + (float)mic_height*mic_height)
+    WaitAllInputDelay * sqrt(mic_width*mic_width + mic_height*mic_height)
     * (mic_fs / v) + 0.5
   );
 
@@ -332,7 +332,7 @@ void loop()
     tmp2 = MicInputTime[0] - MicInputTime[2];
 		t02 = ((float)tmp2) / mic_fs;
 
-    CalculatePos(t01, t23, t02, (float)mic_width, (float)mic_height, &x, (int *)0);
+    CalculatePos(t01, t23, t02, mic_width, mic_height, &x, (int *)0);
     //-----------------------------------
     //3 -> 1
 		//1 -> 2
@@ -345,7 +345,7 @@ void loop()
     tmp2 = MicInputTime[2] - MicInputTime[3];
 		t02 = ((float)tmp2) / mic_fs;
 
-    CalculatePos(t01, t23, t02, (float)mic_height, (float)mic_width, &y, (int *)0);
+    CalculatePos(t01, t23, t02, mic_height, mic_width, &y, (int *)0);
 
     #if 0
     Serial.print("X:");
@@ -354,8 +354,8 @@ void loop()
     Serial.println(y);
     #else
     AbsMouse.move(
-      (((int32_t)(x + mic_width/2)) * MonitorWidth) / mic_width,
-      (((int32_t)(mic_height/2 - y)) * MonitorHeight) / mic_height
+      (uint16_t)((x + mic_width/2) * MonitorWidth / mic_width + 0.5),
+      (uint16_t)((mic_height/2 - y) * MonitorHeight / mic_height + 0.5)
     );
     AbsMouse.press(MouseClickButton);
     delay(MouseClickTime);
@@ -368,9 +368,9 @@ void loop()
     //Serial.println(Temperature);
     #endif
     //Serial.print("X:");
-    //Serial.println( (((int32_t)(x + mic_width/2)) * MonitorWidth) / mic_width );
+    //Serial.println( (uint16_t)((x + mic_width/2) * MonitorWidth / mic_width + 0.5) );
     //Serial.print("Y:");
-    //Serial.println( (((int32_t)(-y + mic_height/2)) * MonitorHeight) / mic_height );
+    //Serial.println( (uint16_t)((mic_height/2 - y) * MonitorHeight / mic_height + 0.5) );
     #endif
     
     #endif
