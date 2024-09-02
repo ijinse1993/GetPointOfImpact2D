@@ -35,7 +35,7 @@ float WaitAllInputDelay = 1.05;             //너무 오래된 입력을 사용�
 int MouseClickTime  = 1;                    //마우스 클릭 후 떼기까지 시간 [millisecond]
 int MouseClickButton = MOUSE_LEFT;          //마우스 클릭 버튼 (좌클릭:MOUSE_LEFT,우클릭:MOUSE_LEFT,가운데 버튼 클릭:MOUSE_MIDDLE)
 
-#define USING_LM35D_TEMP_SENSOR 1           //1 : LM35D 온도 센서 사용, 0 : 미사용
+#define USING_LM35D_TEMP_SENSOR 0           //1 : LM35D 온도 센서 사용, 0 : 미사용
 int TempSensorPin = A0;                        //LM35D 온도 센서 위치
 
 //탄착 지점
