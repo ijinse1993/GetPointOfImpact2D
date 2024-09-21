@@ -23,24 +23,21 @@ MIC3--------------------------MIC4
 #define PIN_MIC4       1            //외부 인터럽트 기능을 위해 고정
 
 //tuning ( * 표시는 필수로 환경에 맞게 변경 필요)
-#define mic_fs (16000000ul/64)              //sampling rate [Hz]
+#define MIC_FS (16000000ul/64)              //sampling rate [Hz]
 int TimerPrescaleVal = (0 << CS12) | (1 << CS11) | (1 << CS10); //16000000/64
-float mic_width   = 400;						          //마이크 사이 거리(너비) [mm]   *
-float mic_height  = 300;						          //마이크 사이 거리(높이) [mm]   *
+float mic_width   = 920;						          //마이크 사이 거리(너비) [mm]   *
+float mic_height  = 410;						          //마이크 사이 거리(높이) [mm]   *
 float Temperature = 22;                     //기온, 소리속도 계산 목적 ['C]
 int MonitorWidth = 3440;                    //모니터의 가로 해상도 [pixel]  *
 int MonitorHeight = 1440;                   //모니터의 세로 해상도 [pixel]  *
-uint32_t DelayForRemoveEcho = 200;		      //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
+uint32_t DelayForRemoveEcho = 50;		      //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
 float WaitAllInputDelay = 1.05;             //너무 오래된 입력을 사용하지 않기 위한 리셋타임 게인
-int MouseClickTime  = 1;                    //마우스 클릭 후 떼기까지 시간 [millisecond]
+int MouseClickTime  = 10;                    //마우스 클릭 후 떼기까지 시간 [millisecond]
 int MouseClickButton = MOUSE_LEFT;          //마우스 클릭 버튼 (좌클릭:MOUSE_LEFT,우클릭:MOUSE_LEFT,가운데 버튼 클릭:MOUSE_MIDDLE)
 
-#define USING_LM35D_TEMP_SENSOR 0           //1 : LM35D 온도 센서 사용, 0 : 미사용
-int TempSensorPin = A0;                        //LM35D 온도 센서 위치
-
-//탄착 지점
-float X = 0;
-float Y = 0;
+#define USING_LM35D_TEMP_SENSOR 1           //1 : LM35D 온도 센서 사용, 0 : 미사용
+#define TEMP_AVERAGE_COUNT 30
+int LM35D_PIN = A0;
 
 float v;                                  //탄착판에서 소리의 전달 속도  [mm/s]
 unsigned int MicInputResetTime;           //너무 오래된 입력을 사용하지 않기 위한 리셋타임, WaitAllInputDelay*대각선 길이/v로 계산[sample]
@@ -51,6 +48,14 @@ uint32_t NowTime = 0;                     //타이머로 세는 현재시간은 
                                           //타이머 시간 누적 계산하여 현재시간 표시
                                           //NowTime의 오버플로우는 30분마다 한번씩 나오므로 처리 안함
 char MicInputOrder = 1;                   //마이크 들어온 순서를 쉽게 알기위한 변수
+
+
+float TempData[TEMP_AVERAGE_COUNT];
+int TempIndex = 0;
+float TempAccum = 0;
+
+char AdcFlag = 0;
+uint16_t AdcVal = 0;
 
 ISR(INT0_vect)
 {
@@ -108,13 +113,22 @@ ISR(TIMER1_OVF_vect)
 {
   NowTime += 0x10000; //오버플로우 후니 0xFFFF가 아니라 0x10000이 맞는것 같음
 	//NowTime변수의 오버플로우는 30분에 한번씩 발생하니 처리 안함
+
+  #if USING_LM35D_TEMP_SENSOR
+  if( ADCSRA & (1<<ADIF) )
+  {
+    AdcVal = ADC;
+    AdcFlag = 1;
+    ADCSRA |= (1<<ADIF);  //flag clear
+    ADCSRA |= (1<<ADSC);  //ADC start
+  }
+  #endif
 }
 
 void InputOff()
 {
   EIMSK = 0;  //인터럽트 금지
   TIMSK1 = 0;
-  //TCCR1B &= 0xFF - ((0 << CS12) | (0 << CS11) | (0 << CS10));	//타이머 종료
 }
 
 void CalculateReset()
@@ -143,60 +157,26 @@ void CalculateReset()
   TIMSK1 |= (0 << ICIE1) | (0 << OCIE1B) | (0 << OCIE1A) | (1 << TOIE1);		//
 }
 
-#define TEMP_COUNT 100
-float TempData[TEMP_COUNT];
-int TempIndex = 0;
-float TempAccum = 0;
-
-void TempMeanInit(float Temp)
-{
-  int i;
-  for(i = 0; i < TEMP_COUNT;i++) TempData[i] = Temp / TEMP_COUNT;
-  TempAccum = Temp;
-}
-
 float TempMoveMean(float Temp)
 {
   TempAccum -= TempData[TempIndex];
-  TempData[TempIndex] = ((float)Temp) / TEMP_COUNT;
+  TempData[TempIndex] = Temp / TEMP_AVERAGE_COUNT;
   TempAccum += TempData[TempIndex];
   TempIndex++;
-  if(TempIndex >= TEMP_COUNT) TempIndex = 0;
+  if(TempIndex >= TEMP_AVERAGE_COUNT) TempIndex = 0;
   return TempAccum;
 }
 
 void setup()
 {
   int i;
-  analogReference(DEFAULT);
-
   delay(100);
-
-  #if USING_LM35D_TEMP_SENSOR
-  for(i = 0; i < TEMP_COUNT; i++)
-  {
-    Temperature = TempMoveMean((5.0 * analogRead(TempSensorPin) * 100.0)/1024);
-    delay(10);
-  }
-  #endif
 
   cli();    //모든 인터럽트 금지
   for(i = 0 ;i < MIC_COUNT;i++) MicInputExist[i] = 0;
 	NowTime = 0;
 	MicInputCount = 0;
   
-  //기온을 이용하여 공기중 소리 속도 계산
-  
-  v = 1000 * 331.3 * sqrt( (Temperature+273.15) / 273.15 );
-
-  //너무 오래된 입력을 사용하지 않기 위한 리셋타임[second]
-  //외부 노이즈로 마이크중 일부만 소리가 입력되었다고 인식되었을 때 이 입력을 지워주기 위함
-  //가장 먼 거리인 대각선 거리보다 1.05배 긴 거리의 시간차보다 더 오래된 신호가 있으면 기존 입력 초기화
-  MicInputResetTime = (unsigned int)(
-    WaitAllInputDelay * sqrt(mic_width*mic_width + mic_height*mic_height)
-    * (mic_fs / v) + 0.5
-  );
-
   //마이크 입력핀 입력 모드
   pinMode(PIN_MIC1, INPUT);
   pinMode(PIN_MIC2, INPUT);
@@ -224,6 +204,32 @@ void setup()
   TCCR1B |= TimerPrescaleVal;
 
   sei();  //인터럽트 허용
+
+  #if USING_LM35D_TEMP_SENSOR
+  analogReference(DEFAULT);
+
+  for(i = 0; i < TEMP_AVERAGE_COUNT; i++)
+  {
+    AdcVal = analogRead(LM35D_PIN);
+
+    //읽어 들인 값을 현재 섭씨 온도값으로 변환한다.
+    Temperature = TempMoveMean((5.0 * AdcVal * 100.0)/1024);
+    delay(10);
+  }
+  ADCSRA |= (1<<ADIF);  //flag clear
+  ADCSRA |= (1<<ADSC);  //ADC start
+  #endif
+
+  //기온을 이용하여 공기중 소리 속도 계산
+  v = 1000 * 331.3 * sqrt( (Temperature+273.15) / 273.15 );
+
+  //너무 오래된 입력을 사용하지 않기 위한 리셋타임[second]
+  //외부 노이즈로 마이크중 일부만 소리가 입력되었다고 인식되었을 때 이 입력을 지워주기 위함
+  //가장 먼 거리인 대각선 거리보다 1.05배 긴 거리의 시간차보다 더 오래된 신호가 있으면 기존 입력 초기화
+  MicInputResetTime = (unsigned int)(
+    WaitAllInputDelay * sqrt(mic_width*mic_width + mic_height*mic_height)
+    * (MIC_FS / v) + 0.5
+  );
 
   //PC에 절대값 마우스 입력을 위한 라이브러리 초기화
   AbsMouse.init(MonitorWidth, MonitorHeight);
@@ -305,6 +311,17 @@ void CalculatePos(float t01, float t23, float t02, float width, float height, in
 
 void loop()
 {
+  #if USING_LM35D_TEMP_SENSOR
+  if(AdcFlag)
+  {
+    AdcFlag = 0;
+    //읽어 들인 값을 현재 섭씨 온도값으로 변환한다.
+    Temperature = TempMoveMean( (5.0 * AdcVal * 100.0)/1024 );
+    v = 1000 * 331.3 * sqrt( (Temperature+273.15) / 273.15 );
+    //Serial.println(Temperature);
+  }
+  #endif
+
   if(MicInputCount >= MIC_COUNT)
 	{
     int i;
@@ -317,8 +334,8 @@ void loop()
     #if 0
     //------------------마이크 시간차 계산
     tmp2 = MicInputTime[0] - MicInputTime[1];
-		//t01 = tmp2 / mic_fs;
-    Serial.println(tmp2);
+		t01 = tmp2 * v / MIC_FS;
+    Serial.println(t01);
     //-----------------------------------
 		#else
 
@@ -326,11 +343,11 @@ void loop()
     //x축 연산 결과는 잘맞으나 y축 연산 결과는 영 잘맞지 않아 x축 좌표를 구하고 90도 돌려서 다시 x축 좌표를 구하는것으로
     //y축 좌표 계산함
     tmp2 = MicInputTime[0] - MicInputTime[1];
-		t01 = ((float)tmp2) / mic_fs;
+		t01 = ((float)tmp2) / MIC_FS;
     tmp2 = MicInputTime[2] - MicInputTime[3];
-		t23 = ((float)tmp2) / mic_fs;
+		t23 = ((float)tmp2) / MIC_FS;
     tmp2 = MicInputTime[0] - MicInputTime[2];
-		t02 = ((float)tmp2) / mic_fs;
+		t02 = ((float)tmp2) / MIC_FS;
 
     CalculatePos(t01, t23, t02, mic_width, mic_height, &x, (int *)0);
     //-----------------------------------
@@ -339,11 +356,11 @@ void loop()
 		//4 -> 3
 		//2 -> 4
     tmp2 = MicInputTime[2] - MicInputTime[0];
-		t01 = ((float)tmp2) / mic_fs;
+		t01 = ((float)tmp2) / MIC_FS;
     tmp2 = MicInputTime[3] - MicInputTime[1];
-		t23 = ((float)tmp2) / mic_fs;
+		t23 = ((float)tmp2) / MIC_FS;
     tmp2 = MicInputTime[2] - MicInputTime[3];
-		t02 = ((float)tmp2) / mic_fs;
+		t02 = ((float)tmp2) / MIC_FS;
 
     CalculatePos(t01, t23, t02, mic_height, mic_width, &y, (int *)0);
 
@@ -361,12 +378,6 @@ void loop()
     delay(MouseClickTime);
     AbsMouse.release(MouseClickButton);
 
-    #if USING_LM35D_TEMP_SENSOR
-    //읽어 들인 값을 현재 섭씨 온도값으로 변환한다.
-    Temperature = TempMoveMean((5.0 * analogRead(TempSensorPin) * 100.0)/1024);
-    v = 1000 * 331.3 * sqrt( (Temperature+273.15) / 273.15 );
-    //Serial.println(Temperature);
-    #endif
     //Serial.print("X:");
     //Serial.println( (uint16_t)((x + mic_width/2) * MonitorWidth / mic_width + 0.5) );
     //Serial.print("Y:");
@@ -374,7 +385,6 @@ void loop()
     #endif
     
     #endif
-
     delay(DelayForRemoveEcho);  //잔향이 끝날때까지 대기
 
 		CalculateReset();																				//리셋
