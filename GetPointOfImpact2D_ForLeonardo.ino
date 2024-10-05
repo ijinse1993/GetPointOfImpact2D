@@ -27,7 +27,7 @@ MIC3--------------------------MIC4
 int TimerPrescaleVal = (0 << CS12) | (1 << CS11) | (1 << CS10); //16000000/64
 float mic_width   = 930;						          //마이크 사이 거리(너비) [mm]   *
 float mic_height  = 390;						          //마이크 사이 거리(높이) [mm]   *
-float Temperature = 22;                     //기온, 소리속도 계산 목적 ['C]
+float Temperature = 22;                     //기온, 소리속도 계산 목적 ['C] *
 int MonitorWidth = 3440;                    //모니터의 가로 해상도 [pixel]  *
 int MonitorHeight = 1440;                   //모니터의 세로 해상도 [pixel]  *
 uint32_t DelayForRemoveEcho = 30;		      //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
@@ -35,7 +35,7 @@ float WaitAllInputDelay = 2.05;             //너무 오래된 입력을 사용�
 int MouseClickTime  = 10;                    //마우스 클릭 후 떼기까지 시간 [millisecond]
 int MouseClickButton = MOUSE_LEFT;          //마우스 클릭 버튼 (좌클릭:MOUSE_LEFT,우클릭:MOUSE_LEFT,가운데 버튼 클릭:MOUSE_MIDDLE)
 
-#define USING_LM35D_TEMP_SENSOR 1           //1 : LM35D 온도 센서 사용, 0 : 미사용
+#define USING_LM35D_TEMP_SENSOR 1           //1 : LM35D 온도 센서 사용, 0 : 미사용 *
 #define TEMP_AVERAGE_COUNT 30
 int LM35D_PIN = A0;
 
