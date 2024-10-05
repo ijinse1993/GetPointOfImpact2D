@@ -2,7 +2,7 @@
 #include <AbsMouse.h>
 
 #define PIN_DEBUG_CHECK 6
-
+#define CHECK_MIC01_DISTANCE 0
 /*
 마이크 혹은 가속도센서 설치 위치(반드시 마이크를 탄착판에 밀착하여 설치)
 센서 입력은 디지털 on/off 신호로 들어와야함
@@ -25,13 +25,13 @@ MIC3--------------------------MIC4
 //tuning ( * 표시는 필수로 환경에 맞게 변경 필요)
 #define MIC_FS (16000000ul/64)              //sampling rate [Hz]
 int TimerPrescaleVal = (0 << CS12) | (1 << CS11) | (1 << CS10); //16000000/64
-float mic_width   = 920;						          //마이크 사이 거리(너비) [mm]   *
-float mic_height  = 410;						          //마이크 사이 거리(높이) [mm]   *
+float mic_width   = 930;						          //마이크 사이 거리(너비) [mm]   *
+float mic_height  = 390;						          //마이크 사이 거리(높이) [mm]   *
 float Temperature = 22;                     //기온, 소리속도 계산 목적 ['C]
 int MonitorWidth = 3440;                    //모니터의 가로 해상도 [pixel]  *
 int MonitorHeight = 1440;                   //모니터의 세로 해상도 [pixel]  *
-uint32_t DelayForRemoveEcho = 50;		      //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
-float WaitAllInputDelay = 1.05;             //너무 오래된 입력을 사용하지 않기 위한 리셋타임 게인
+uint32_t DelayForRemoveEcho = 30;		      //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
+float WaitAllInputDelay = 2.05;             //너무 오래된 입력을 사용하지 않기 위한 리셋타임 게인
 int MouseClickTime  = 10;                    //마우스 클릭 후 떼기까지 시간 [millisecond]
 int MouseClickButton = MOUSE_LEFT;          //마우스 클릭 버튼 (좌클릭:MOUSE_LEFT,우클릭:MOUSE_LEFT,가운데 버튼 클릭:MOUSE_MIDDLE)
 
@@ -189,7 +189,7 @@ void setup()
 
   //External int 초기화
   //INT0, INT1 , INT2, INT3 rising edge 검출
-	EICRA = (1<<ISC31) | (1<<ISC30) | (1<<ISC21) | (1<<ISC20) | (1<<ISC11) | (1<<ISC10) | (1<<ISC01) | (1<<ISC00);
+	EICRA = (1<<ISC31) | (0<<ISC30) | (1<<ISC21) | (0<<ISC20) | (1<<ISC11) | (0<<ISC10) | (1<<ISC01) | (0<<ISC00);
   EICRB = 0;
 	EIMSK = (1<<INT3) | (1<<INT2) | (1<<INT1) | (1<<INT0);  //인터럽트 허용
 
@@ -222,6 +222,7 @@ void setup()
 
   //기온을 이용하여 공기중 소리 속도 계산
   v = 1000 * 331.3 * sqrt( (Temperature+273.15) / 273.15 );
+  //v = 487680;
 
   //너무 오래된 입력을 사용하지 않기 위한 리셋타임[second]
   //외부 노이즈로 마이크중 일부만 소리가 입력되었다고 인식되었을 때 이 입력을 지워주기 위함
@@ -331,10 +332,12 @@ void loop()
     InputOff();
     //digitalWrite(PIN_DEBUG_CHECK, HIGH);
 
-    #if 0
+    #if CHECK_MIC01_DISTANCE
     //------------------마이크 시간차 계산
     tmp2 = MicInputTime[0] - MicInputTime[1];
-		t01 = tmp2 * v / MIC_FS;
+		//t01 = tmp2 * v / MIC_FS;
+    //Serial.println(t01);
+    t01 = mic_width / tmp2 * MIC_FS;
     Serial.println(t01);
     //-----------------------------------
 		#else
@@ -392,7 +395,7 @@ void loop()
 	}
   else if(MicInputCount > 0)					//측정 시간이 오래되면 리셋
 	{
-    #if 1
+    #if CHECK_MIC01_DISTANCE==0
     int i;
     for(i=0;i<MIC_COUNT;i++)
     {
