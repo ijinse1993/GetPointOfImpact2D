@@ -25,19 +25,20 @@ MIC3--------------------------MIC4
 //tuning ( * 표시는 필수로 환경에 맞게 변경 필요)
 #define MIC_FS (16000000ul/64)              //sampling rate [Hz]
 int TimerPrescaleVal = (0 << CS12) | (1 << CS11) | (1 << CS10); //16000000/64
-float mic_width   = 930;						          //마이크 사이 거리(너비) [mm]   *
-float mic_height  = 390;						          //마이크 사이 거리(높이) [mm]   *
-float Temperature = 22;                     //기온, 소리속도 계산 목적 ['C] *
-int MonitorWidth = 3440;                    //모니터의 가로 해상도 [pixel]  *
-int MonitorHeight = 1440;                   //모니터의 세로 해상도 [pixel]  *
-uint32_t DelayForRemoveEcho = 30;		      //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
-float WaitAllInputDelay = 2.05;             //너무 오래된 입력을 사용하지 않기 위한 리셋타임 게인
-int MouseClickTime  = 10;                    //마우스 클릭 후 떼기까지 시간 [millisecond]
-int MouseClickButton = MOUSE_LEFT;          //마우스 클릭 버튼 (좌클릭:MOUSE_LEFT,우클릭:MOUSE_LEFT,가운데 버튼 클릭:MOUSE_MIDDLE)
+float mic_width                       = 930;				  //마이크가 놓인 직사각형의 너비 [mm]   *
+float mic_height                      = 390;          //마이크가 놓인 직사각형의 높이 [mm]   *
+float Temperature                     = 22;           //기온, 소리속도 계산 목적이며 USING_LM35D_TEMP_SENSOR옵션이 켜지면 실시간으로 센서를 통해 온도값을 받음 ['C] *
+int MonitorWidth                      = 3440;         //주 모니터의 가로 해상도 [pixel]  *
+int MonitorHeight                     = 1440;         //주 모니터의 세로 해상도 [pixel]  *
+uint32_t DelayForRemoveEcho           = 30;           //충격 인식 후 다시 인식 시작하기까지 딜레이 (잔향 제거)[millisecond]
+float WaitAllInputDelay               = 2.05;         //너무 오래된 입력을 사용하지 않기 위한 리셋타임 게인
+int MouseClickTime                    = 8;            //마우스 클릭 후 떼기까지 시간 [millisecond]
+int MouseClickTimeRandomAmplitude     = 5;            //마우스 클릭 후 떼기까지 시간에 더해질 난수 시간 크기 [millisecond]
+int MouseClickButton                  = MOUSE_LEFT;   //마우스 클릭 버튼 (좌클릭:MOUSE_LEFT,우클릭:MOUSE_LEFT,가운데 버튼 클릭:MOUSE_MIDDLE)
 
-#define USING_LM35D_TEMP_SENSOR 1           //1 : LM35D 온도 센서 사용, 0 : 미사용 *
-#define TEMP_AVERAGE_COUNT 30
-int LM35D_PIN = A0;
+#define USING_LM35D_TEMP_SENSOR       1               //1 : LM35D 온도 센서 사용, 0 : 미사용 *
+#define TEMP_AVERAGE_COUNT            30
+int LM35D_PIN                         = A0;           //온도 센서값을 받을 ADC 핀
 
 float v;                                  //탄착판에서 소리의 전달 속도  [mm/s]
 unsigned int MicInputResetTime;           //너무 오래된 입력을 사용하지 않기 위한 리셋타임, WaitAllInputDelay*대각선 길이/v로 계산[sample]
@@ -172,6 +173,8 @@ void setup()
   int i;
   delay(100);
 
+  randomSeed(analogRead(0));
+
   cli();    //모든 인터럽트 금지
   for(i = 0 ;i < MIC_COUNT;i++) MicInputExist[i] = 0;
 	NowTime = 0;
@@ -189,6 +192,9 @@ void setup()
 
   //External int 초기화
   //INT0, INT1 , INT2, INT3 rising edge 검출
+																												  
+  
+											   
 	EICRA = (1<<ISC31) | (0<<ISC30) | (1<<ISC21) | (0<<ISC20) | (1<<ISC11) | (0<<ISC10) | (1<<ISC01) | (0<<ISC00);
   EICRB = 0;
 	EIMSK = (1<<INT3) | (1<<INT2) | (1<<INT1) | (1<<INT0);  //인터럽트 허용
@@ -379,6 +385,7 @@ void loop()
     );
     AbsMouse.press(MouseClickButton);
     delay(MouseClickTime);
+    delay( random(MouseClickTimeRandomAmplitude) );
     AbsMouse.release(MouseClickButton);
 
     //Serial.print("X:");
